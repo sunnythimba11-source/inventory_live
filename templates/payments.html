@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+{% set total_purchases = purchases|sum(attribute='total_cost') %}
+{% set total_paid_suppliers = purchases|sum(attribute='paid_amount') %}
+{% set owing_suppliers = purchases|sum(attribute='balance') %}
+{% set total_sales = sales|sum(attribute='total_amount') %}
+{% set total_from_customers = sales|sum(attribute='paid_amount') %}
+{% set owed_customers = sales|sum(attribute='balance') %}
+
+<h4 class="page-title"><i class="bi bi-cash-coin"></i> Payments</h4>
+<div class="row g-3 mb-4">
+  <div class="col-3"><div class="stat-card"><div class="label">Paid to Suppliers</div><div class="number">{{ fmt_money(total_paid_suppliers) }}</div></div></div>
+  <div class="col-3"><div class="stat-card gold"><div class="label">Owing to Suppliers</div><div class="number">{{ fmt_money(owing_suppliers) }}</div></div></div>
+  <div class="col-3"><div class="stat-card blue"><div class="label">Received from Customers</div><div class="number">{{ fmt_money(total_from_customers) }}</div></div></div>
+  <div class="col-3"><div class="stat-card" style="background:linear-gradient(135deg,#6b1a3c,#9e2a5c)"><div class="label">Owed by Customers</div><div class="number">{{ fmt_money(owed_customers) }}</div></div></div>
+</div>
+
+<ul class="nav nav-tabs" id="tabs">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#suppliers">Suppliers (What We Owe)</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#customers">Customers (What They Owe)</button></li>
+</ul>
+<div class="tab-content">
+  <div class="tab-pane fade show active" id="suppliers">
+    <div class="card mt-2">
+      <div class="card-header"><i class="bi bi-truck"></i> Supplier Summary</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Supplier</th><th>Count</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for name, s in supplier_summary.items() %}
+            <tr><td>{{ name }}</td><td>{{ s.count }}</td><td>{{ fmt_money(s.total) }}</td><td>{{ fmt_money(s.paid) }}</td><td>{{ fmt_money(s.balance) }}</td>
+              <td>{% if s.balance <= 0 %}<span class="badge bg-success">Cleared</span>{% elif s.paid > 0 %}<span class="badge bg-warning text-dark">Partial</span>{% else %}<span class="badge bg-danger">Unpaid</span>{% endif %}</td>
+            </tr>{% endfor %}
+            {% if not supplier_summary %}<tr><td colspan="6" class="text-center text-muted py-2">No purchases</td></tr>{% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="tab-pane fade" id="customers">
+    <div class="card mt-2">
+      <div class="card-header"><i class="bi bi-people"></i> Customer Summary</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Customer</th><th>Count</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for name, s in customer_summary.items() %}
+            <tr><td>{{ name }}</td><td>{{ s.count }}</td><td>{{ fmt_money(s.total) }}</td><td>{{ fmt_money(s.paid) }}</td><td>{{ fmt_money(s.balance) }}</td>
+              <td>{% if s.balance <= 0 %}<span class="badge bg-success">Cleared</span>{% elif s.paid > 0 %}<span class="badge bg-warning text-dark">Partial</span>{% else %}<span class="badge bg-danger">Unpaid</span>{% endif %}</td>
+            </tr>{% endfor %}
+            {% if not customer_summary %}<tr><td colspan="6" class="text-center text-muted py-2">No sales</td></tr>{% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
