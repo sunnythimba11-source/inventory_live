@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block content %}
+<h4 class="page-title"><i class="bi bi-speedometer2"></i> Dashboard</h4>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card"><div class="label">Raw Materials Value</div><div class="number">{{ fmt_money(total_rm) }}</div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card gold"><div class="label">Finished Goods Value</div><div class="number">{{ fmt_money(total_prod) }}</div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card blue"><div class="label">Total Purchases</div><div class="number">{{ fmt_money(total_purchases) }}</div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card" style="background:linear-gradient(135deg,#1a3c34,#2a5c4e)"><div class="label">Owing to Suppliers</div><div class="number">{{ fmt_money(owing_to_suppliers) }}</div></div>
+  </div>
+</div>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card" style="background:linear-gradient(135deg,#6b1a3c,#9e2a5c)"><div class="label">Total Sales</div><div class="number">{{ fmt_money(total_sales) }}</div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card gold"><div class="label">Received from Customers</div><div class="number">{{ fmt_money(total_from_customers) }}</div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card blue"><div class="label">Owed by Customers</div><div class="number">{{ fmt_money(owed_by_customers) }}</div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card" style="padding:16px">
+      <div class="label" style="font-size:.85rem;margin-bottom:6px">Net Cash Flow</div>
+      <div style="font-size:.85rem;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:4px;margin-bottom:4px"><span>From Customers</span> <span style="float:right">{{ fmt_money(total_from_customers) }}</span></div>
+      <div style="font-size:.85rem;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:4px;margin-bottom:4px"><span>To Suppliers</span> <span style="float:right">-{{ fmt_money(paid_to_suppliers) }}</span></div>
+      <div style="font-size:1.2rem;font-weight:700"><span>Net</span> <span style="float:right">{{ fmt_money(total_from_customers - paid_to_suppliers) }}</span></div>
+    </div>
+  </div>
+</div>
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card"><div class="card-header"><i class="bi bi-box-seam"></i> Raw Materials Stock</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Material</th><th>Stock</th><th>Bags</th><th>Kg</th><th>Value</th><th>Status</th></tr></thead>
+          <tbody>{% for r in rm %}
+            {% set bags = parse_bags(r.bags) %}
+            {% set total_bags = bags_total(bags) if r.unit == 'bag' else r.current_stock %}
+            {% set total_kg = bags_to_kg(bags) if r.unit == 'bag' else (r.current_stock * 1000 if r.unit == 'tonne' else (r.current_stock if r.unit == 'kg' else 0)) %}
+            <tr class="{{ 'low-stock' if r.current_stock <= r.reorder_level }}">
+              <td>{{ r.name }}</td><td>{{ fmt_num(r.current_stock) }} {{ r.unit }}</td>
+              <td style="font-size:.82rem">{{ fmt_num(total_bags) + ' bags' if r.unit == 'bag' else '-' }}</td>
+              <td style="font-size:.82rem">{{ fmt_num(total_kg) + ' kg' if total_kg > 0 else '-' }}</td>
+              <td>{{ fmt_money(r.current_stock * (r.unit_cost or 0)) }}</td>
+              <td>{% if r.current_stock <= 0 %}<span class="badge bg-danger">Out</span>{% elif r.current_stock <= r.reorder_level %}<span class="badge bg-warning text-dark">Low</span>{% else %}<span class="badge bg-success">OK</span>{% endif %}</td>
+            </tr>{% endfor %}</tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card"><div class="card-header"><i class="bi bi-archive"></i> Finished Products</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Product</th><th>Stock</th><th>Bags</th><th>Kg</th><th>Price</th><th>Value</th></tr></thead>
+          <tbody>{% for p in prod %}
+            {% set bags = parse_bags(p.bags) %}
+            {% set total_bags = bags_total(bags) if p.unit == 'bag' else p.current_stock %}
+            {% set total_kg = bags_to_kg(bags) if p.unit == 'bag' else (p.current_stock * 1000 if p.unit == 'tonne' else (p.current_stock if p.unit == 'kg' else 0)) %}
+            <tr><td>{{ p.name }}</td><td>{{ fmt_num(p.current_stock) }} {{ p.unit }}</td>
+              <td style="font-size:.82rem">{{ fmt_num(total_bags) + ' bags' if p.unit == 'bag' else '-' }}</td>
+              <td style="font-size:.82rem">{{ fmt_num(total_kg) + ' kg' if total_kg > 0 else '-' }}</td>
+              <td>{{ fmt_money(p.price) }}</td><td>{{ fmt_money(p.current_stock * p.price) }}</td>
+            </tr>{% endfor %}</tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% if low_stock %}
+<div class="alert alert-warning mt-3">
+  <i class="bi bi-exclamation-triangle"></i> <strong>Low Stock:</strong>
+  {% for r in low_stock %}{{ r.name }} ({{ fmt_num(r.current_stock) }} {{ r.unit }}){% if not loop.last %}, {% endif %}{% endfor %}
+</div>{% endif %}
+{% endblock %}
