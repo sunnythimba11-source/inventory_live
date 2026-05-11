@@ -858,15 +858,24 @@ def import_upload():
 # ===== INIT =====
 with app.app_context():
     db.create_all()
-    if not User.query.first():
-        admin = User(username='admin', role='admin')
-        admin.set_password('admin123')
+    # Create/update admin
+    admin = User.query.filter_by(username='Sunny').first()
+    if not admin:
+        admin = User(username='Sunny', role='admin')
         db.session.add(admin)
+    admin.set_password('Newphase.sunny11')
+    # Create/update viewer
+    viewer = User.query.filter_by(username='viewer').first()
+    if not viewer:
         viewer = User(username='viewer', role='viewer')
-        viewer.set_password('view123')
         db.session.add(viewer)
-        db.session.commit()
-        print('Default users created')
+    viewer.set_password('view123')
+    # Remove old default admin if exists
+    old = User.query.filter_by(username='admin').first()
+    if old:
+        db.session.delete(old)
+    db.session.commit()
+    print('Users ready')
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
