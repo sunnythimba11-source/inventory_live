@@ -7,7 +7,7 @@ import json, os
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'zawadibora-farm-secret-key-2026')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///zawadibora.db').replace('postgres://', 'postgresql://')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL') or 'postgresql://postgres:Newphase.sunny11@db.wcpxnuregylsyzayrgvn.supabase.co:5432/postgres'
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
