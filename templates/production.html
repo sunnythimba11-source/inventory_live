@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block content %}
+<h4 class="page-title"><i class="bi bi-gear"></i> Production</h4>
+{% if current_user.role == 'admin' %}<button class="btn btn-gold mb-3" onclick="showForm()"><i class="bi bi-plus-lg"></i> Record Production Batch</button>{% endif %}
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Date</th><th>Product</th><th>Qty Produced</th><th>Materials Used</th>{% if current_user.role == 'admin' %}<th></th>{% endif %}</tr></thead>
+      <tbody>{% for b in items|sort(attribute='id', reverse=True) %}
+        {% set prod = products|selectattr('id', 'equalto', b.product_id)|first %}
+        {% set ings = parse_bags(b.ingredients) %}
+        <tr><td>{{ b.date }}</td><td>{{ prod.name if prod else 'Unknown' }}</td>
+          <td>{{ fmt_num(b.quantity_produced) }}</td>
+          <td style="font-size:.85rem">{% for i in ings %}{{ i.name }}: {{ fmt_num(i.qty) }}{% if not loop.first %}, {% endif %}{% endfor %}</td>
+          {% if current_user.role == 'admin' %}
+          <td><button class="btn btn-sm btn-outline-danger" onclick="del({{ b.id }})"><i class="bi bi-trash"></i></button></td>{% endif %}
+        </tr>{% endfor %}</tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+{% if current_user.role == 'admin' %}
+<div class="modal fade" id="formModal" tabindex="-1">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header" style="background:#1a3c34;color:#fff;">
+      <h5 class="modal-title">Record Production</h5>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+    </div>
+    <form method="POST" action="/production/save">
+      <div class="modal-body">
+        <div class="row g-3 mb-3">
+          <div class="col-md-6"><label>Product *</label>
+            <select name="product_id" class="form-select" required>
+              <option value="">Select product</option>
+              {% for p in products %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6"><label>Date</label><input type="date" name="date" class="form-control" value="{{ today_str() }}"></div>
+          <div class="col-md-6"><label>Quantity Produced *</label><input type="number" name="quantity_produced" class="form-control" step="0.01" required></div>
+        </div>
+        <hr><h6><i class="bi bi-boxes"></i> Raw Materials Used</h6>
+        <div id="ingredients">
+          <div class="row g-2 mb-2 ing-row">
+            <div class="col-5">
+              <select name="rm_id" class="form-select form-select-sm">
+                <option value="">Select material</option>
+                {% for r in rm %}<option value="{{ r.id }}">{{ r.name }} (Stock: {{ fmt_num(r.current_stock) }})</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-3"><input type="number" name="rm_qty" class="form-control form-control-sm" step="0.01" placeholder="Qty"></div>
+            <div class="col-2">
+              <button type="button" class="btn btn-sm btn-outline-success" onclick="addIngRow()"><i class="bi bi-plus"></i></button>
+            </div>
+          </div>
+        </div>
+        <input type="hidden" name="ingredients_json" id="ingredientsJson" value="[]">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary" onclick="return collectIngredients()">Save Production</button>
+      </div>
+    </form>
+  </div></div>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+function addIngRow() {
+  const c = document.getElementById('ingredients');
+  const row = document.createElement('div'); row.className = 'row g-2 mb-2 ing-row';
+  row.innerHTML = `<div class="col-5">${c.querySelector('.ing-row select').outerHTML}</div>
+    <div class="col-3"><input type="number" name="rm_qty" class="form-control form-control-sm" step="0.01" placeholder="Qty"></div>
+    <div class="col-2"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.ing-row').remove()"><i class="bi bi-x"></i></button></div>`;
+  c.appendChild(row);
+}
+function collectIngredients() {
+  const ings = [];
+  document.querySelectorAll('.ing-row').forEach(row => {
+    const id = parseInt(row.querySelector('[name="rm_id"]').value);
+    const qty = parseFloat(row.querySelector('[name="rm_qty"]').value);
+    if (id && qty) ings.push({raw_material_id: id, qty});
+  });
+  document.getElementById('ingredientsJson').value = JSON.stringify(ings);
+  return true;
+}
+function del(id) { if (confirm('Delete production batch? Stock will reverse.')) window.location = '/production/delete/' + id; }
+</script>
+{% endblock %}
