@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+{% set total_purchases = purchases|sum(attribute='total_cost') %}
+{% set total_sales = sales|sum(attribute='total_amount') %}
+{% set total_production = production|sum(attribute='quantity_produced') %}
+
+<h4 class="page-title"><i class="bi bi-file-text"></i> Reports</h4>
+<div class="row g-3 mb-4">
+  <div class="col-3"><div class="stat-card"><div class="label">Total Purchases</div><div class="number">{{ fmt_money(total_purchases) }}</div></div></div>
+  <div class="col-3"><div class="stat-card gold"><div class="label">Total Sales</div><div class="number">{{ fmt_money(total_sales) }}</div></div></div>
+  <div class="col-3"><div class="stat-card blue"><div class="label">Gross Margin</div><div class="number">{{ fmt_money(total_sales - total_purchases) }}</div></div></div>
+  <div class="col-3"><div class="stat-card" style="background:linear-gradient(135deg,#6b1a3c,#9e2a5c)"><div class="label">Total Production</div><div class="number">{{ fmt_num(total_production) }} kg</div></div></div>
+</div>
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card"><div class="card-header"><i class="bi bi-cart-plus"></i> Monthly Purchases</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Month</th><th>Amount</th></tr></thead>
+          <tbody>
+            {% set months = {} %}
+            {% for p in purchases %}{% set m = (p.date or '')[:7] %}{% if m %}{% if m in months %}{% set _ = months.update({m: months[m] + p.total_cost}) %}{% else %}{% set _ = months.update({m: p.total_cost}) %}{% endif %}{% endif %}{% endfor %}
+            {% for m, v in monthly_purchases.items()|sort %}
+            <tr><td>{{ m }}</td><td>{{ fmt_money(v) }}</td></tr>{% endfor %}
+            {% if not monthly_purchases %}<tr><td colspan="2" class="text-center text-muted py-2">No data</td></tr>{% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card"><div class="card-header"><i class="bi bi-currency-dollar"></i> Monthly Sales</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Month</th><th>Amount</th></tr></thead>
+          <tbody>
+            {% set smonths = {} %}
+            {% for s in sales %}{% set m = (s.date or '')[:7] %}{% if m %}{% if m in smonths %}{% set _ = smonths.update({m: smonths[m] + s.total_amount}) %}{% else %}{% set _ = smonths.update({m: s.total_amount}) %}{% endif %}{% endif %}{% endfor %}
+            {% for m, v in monthly_sales.items()|sort %}
+            <tr><td>{{ m }}</td><td>{{ fmt_money(v) }}</td></tr>{% endfor %}
+            {% if not monthly_sales %}<tr><td colspan="2" class="text-center text-muted py-2">No data</td></tr>{% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="text-center mt-3">
+  <button class="btn btn-gold" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
+  <a href="/export" class="btn btn-primary"><i class="bi bi-file-earmark-excel"></i> Export to Excel</a>
+</div>
+{% endblock %}
