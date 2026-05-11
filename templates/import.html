@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="page-title"><i class="bi bi-upload"></i> Import Old Data</h3>
+
+<div class="card">
+  <div class="card-header">Instructions</div>
+  <div class="card-body">
+    <ol class="mb-0">
+      <li>Open the old inventory system's <code>index.html</code> in your browser.</li>
+      <li>Press <kbd>F12</kbd> to open Developer Tools, go to the <strong>Console</strong> tab.</li>
+      <li>Copy and paste each command below, one at a time. Copy the output (the array string).</li>
+      <li>Select the matching entity type below, paste the JSON, and click <strong>Import</strong>.</li>
+    </ol>
+  </div>
+</div>
+
+<div class="row">
+<div class="col-md-6">
+<div class="card">
+  <div class="card-header">Step 1 — Copy from Old System</div>
+  <div class="card-body">
+    <p class="mb-2 small">Run these in the old system's Console (press the Copy button):</p>
+    <div class="mb-2">
+      <code style="font-size:.85rem">copy(localStorage.getItem('zawadibora_rawMaterials'))</code>
+      <button class="btn btn-sm btn-outline-secondary float-end" onclick="copyText(this)">Copy</button>
+    </div>
+    <div class="mb-2">
+      <code style="font-size:.85rem">copy(localStorage.getItem('zawadibora_suppliers'))</code>
+      <button class="btn btn-sm btn-outline-secondary float-end" onclick="copyText(this)">Copy</button>
+    </div>
+    <div class="mb-2">
+      <code style="font-size:.85rem">copy(localStorage.getItem('zawadibora_products'))</code>
+      <button class="btn btn-sm btn-outline-secondary float-end" onclick="copyText(this)">Copy</button>
+    </div>
+    <div class="mb-2">
+      <code style="font-size:.85rem">copy(localStorage.getItem('zawadibora_purchases'))</code>
+      <button class="btn btn-sm btn-outline-secondary float-end" onclick="copyText(this)">Copy</button>
+    </div>
+    <div class="mb-2">
+      <code style="font-size:.85rem">copy(localStorage.getItem('zawadibora_production'))</code>
+      <button class="btn btn-sm btn-outline-secondary float-end" onclick="copyText(this)">Copy</button>
+    </div>
+    <div class="mb-2">
+      <code style="font-size:.85rem">copy(localStorage.getItem('zawadibora_sales'))</code>
+      <button class="btn btn-sm btn-outline-secondary float-end" onclick="copyText(this)">Copy</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="col-md-6">
+<div class="card">
+  <div class="card-header">Step 2 — Paste & Import Here</div>
+  <div class="card-body">
+    <form method="POST" action="/import/upload">
+      <div class="mb-3">
+        <label class="form-label">Entity Type</label>
+        <select name="entity" class="form-select" required>
+          <option value="">-- Select --</option>
+          <option value="raw_materials">Raw Materials</option>
+          <option value="suppliers">Suppliers</option>
+          <option value="products">Products</option>
+          <option value="purchases">Purchases</option>
+          <option value="production">Production</option>
+          <option value="sales">Sales</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Paste JSON here</label>
+        <textarea name="json_data" class="form-control" rows="10" style="font-family:monospace;font-size:.85rem" placeholder='[{"id":1,"name":"...' required></textarea>
+      </div>
+      <button type="submit" class="btn btn-gold w-100"><i class="bi bi-upload"></i> Import</button>
+    </form>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="card mt-3">
+  <div class="card-header">Order Matters!</div>
+  <div class="card-body">
+    <p class="mb-0 small">Import in this order to avoid missing references:</p>
+    <ol class="small">
+      <li><strong>Raw Materials</strong> & <strong>Suppliers</strong> first (they have no dependencies)</li>
+      <li><strong>Products</strong> next (standalone)</li>
+      <li><strong>Purchases</strong> & <strong>Production</strong> & <strong>Sales</strong> last (they reference raw materials / products)</li>
+    </ol>
+    <p class="small mb-0 text-muted">Duplicates (same name) are skipped automatically.</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyText(btn) {
+  const code = btn.parentElement.querySelector('code');
+  navigator.clipboard.writeText(code.textContent).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = orig, 1500);
+  });
+}
+</script>
+{% endblock %}
