@@ -865,11 +865,15 @@ with app.app_context():
         db.session.add(admin)
     admin.set_password('Newphase.sunny11')
     # Create/update viewer
-    viewer = User.query.filter_by(username='viewer').first()
+    viewer = User.query.filter_by(username='User').first()
     if not viewer:
-        viewer = User(username='viewer', role='viewer')
+        viewer = User(username='User', role='viewer')
         db.session.add(viewer)
-    viewer.set_password('view123')
+    viewer.set_password('Zawadi2026')
+    # Remove old viewer if exists
+    old_viewer = User.query.filter_by(username='viewer').first()
+    if old_viewer:
+        db.session.delete(old_viewer)
     # Remove old default admin if exists
     old = User.query.filter_by(username='admin').first()
     if old:
