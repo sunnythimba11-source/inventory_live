@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block content %}
+<h4 class="page-title"><i class="bi bi-currency-dollar"></i> Sales</h4>
+{% if current_user.role == 'admin' %}<button class="btn btn-gold mb-3" onclick="showForm()"><i class="bi bi-plus-lg"></i> Record Sale</button>{% endif %}
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Date</th><th>Product</th><th>Customer</th><th>Qty</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th>{% if current_user.role == 'admin' %}<th></th>{% endif %}</tr></thead>
+      <tbody>{% for s in items|sort(attribute='id', reverse=True) %}
+        {% set prod = products|selectattr('id', 'equalto', s.product_id)|first %}
+        <tr>
+          <td>{{ s.date }}</td><td>{{ prod.name if prod else 'Unknown' }}</td><td>{{ s.customer_name or 'Walk-in' }}</td>
+          <td>{{ fmt_num(s.quantity) }}</td><td>{{ fmt_money(s.total_amount) }}</td>
+          <td>{{ fmt_money(s.paid_amount or 0) }}</td><td>{{ fmt_money(s.balance or s.total_amount) }}</td>
+          <td>{% if (s.balance or 0) <= 0 %}<span class="badge bg-success">Paid</span>{% elif (s.paid_amount or 0) > 0 %}<span class="badge bg-warning text-dark">Partial</span>{% else %}<span class="badge bg-danger">Unpaid</span>{% endif %}</td>
+          {% if current_user.role == 'admin' %}
+          <td style="white-space:nowrap">
+            <button class="btn btn-sm btn-outline-primary" onclick="payForm({{ s.id }})" title="Receive Payment"><i class="bi bi-cash"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="del({{ s.id }})"><i class="bi bi-trash"></i></button>
+          </td>{% endif %}
+        </tr>{% endfor %}</tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+{% if current_user.role == 'admin' %}
+<div class="modal fade" id="formModal" tabindex="-1">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header" style="background:#1a3c34;color:#fff;">
+      <h5 class="modal-title">Record Sale</h5>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+    </div>
+    <form method="POST" action="/sales/save">
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-6"><label>Product *</label>
+            <select name="product_id" class="form-select" required onchange="updatePrice(this)">
+              <option value="">Select product</option>
+              {% for p in products %}<option value="{{ p.id }}" data-price="{{ p.price }}">{{ p.name }} (Stock: {{ fmt_num(p.current_stock) }})</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6"><label>Customer</label><input type="text" name="customer_name" class="form-control" placeholder="Walk-in"></div>
+          <div class="col-md-3"><label>Quantity *</label><input type="number" name="quantity" class="form-control" step="0.01" required oninput="calcSTotal()"></div>
+          <div class="col-md-3"><label>Unit Price *</label><input type="number" name="unit_price" class="form-control" step="0.01" required oninput="calcSTotal()"></div>
+          <div class="col-md-3"><label>Total</label><input type="text" id="sTotal" class="form-control" readonly style="font-weight:700;color:#1a3c34;"></div>
+          <div class="col-md-3"><label>Amount Paid</label><input type="number" name="paid_amount" class="form-control" step="0.01" value="0" oninput="calcSTotal()"></div>
+          <div class="col-md-4"><label>Date</label><input type="date" name="date" class="form-control" value="{{ today_str() }}"></div>
+          <div class="col-md-4"><label>Payment Method</label>
+            <select name="payment_method" class="form-select">
+              <option value="Cash">Cash</option><option value="M-Pesa">M-Pesa</option>
+              <option value="Bank Transfer">Bank Transfer</option><option value="Credit">Credit</option>
+            </select>
+          </div>
+          <div class="col-md-4"><label>Payment Date</label><input type="date" name="payment_date" class="form-control" value="{{ today_str() }}"></div>
+          <div class="col-12"><label>Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary">Record Sale</button>
+      </div>
+    </form>
+  </div></div>
+</div>
+
+<div class="modal fade" id="payModal" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header" style="background:#1a3c34;color:#fff;">
+      <h5 class="modal-title">Receive Payment</h5>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+    </div>
+    <form method="POST" action="/sales/pay">
+      <div class="modal-body">
+        <input type="hidden" name="sale_id" id="payId">
+        <div class="mb-2"><label>Customer</label><input type="text" id="payCustomer" class="form-control" readonly></div>
+        <div class="row g-2">
+          <div class="col-6"><label>Total</label><input type="text" id="payTotal" class="form-control" readonly></div>
+          <div class="col-6"><label>Balance</label><input type="text" id="payBalance" class="form-control" readonly style="font-weight:700;color:#dc3545"></div>
+        </div>
+        <div class="mb-2 mt-2"><label>Payment Amount *</label><input type="number" name="payment_amount" class="form-control" step="0.01" min="0" required></div>
+        <div class="mb-2"><label>Method</label>
+          <select name="payment_method" class="form-select">
+            <option value="Cash">Cash</option><option value="M-Pesa">M-Pesa</option>
+            <option value="Bank Transfer">Bank Transfer</option><option value="Cheque">Cheque</option>
+          </select>
+        </div>
+        <div class="mb-2"><label>Date</label><input type="date" name="payment_date" class="form-control" value="{{ today_str() }}"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary">Receive Payment</button>
+      </div>
+    </form>
+  </div></div>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+function calcSTotal() {
+  const q = parseFloat(document.querySelector('[name="quantity"]').value) || 0;
+  const p = parseFloat(document.querySelector('[name="unit_price"]').value) || 0;
+  document.getElementById('sTotal').value = 'KSh ' + (q*p).toLocaleString('en-KE', {minimumFractionDigits:2});
+}
+function updatePrice(sel) {
+  document.querySelector('[name="unit_price"]').value = sel.options[sel.selectedIndex]?.dataset?.price || 0;
+  calcSTotal();
+}
+function payForm(id) {
+  fetch('/sales/data/'+id).then(r=>r.json()).then(d => {
+    document.getElementById('payId').value = d.id;
+    document.getElementById('payCustomer').value = d.customer_name || 'Walk-in';
+    document.getElementById('payTotal').value = 'KSh ' + d.total_amount.toLocaleString('en-KE', {minimumFractionDigits:2});
+    document.getElementById('payBalance').value = 'KSh ' + (d.balance||d.total_amount).toLocaleString('en-KE', {minimumFractionDigits:2});
+  });
+  new bootstrap.Modal(document.getElementById('payModal')).show();
+}
+function del(id) { if (confirm('Delete sale? Stock restored.')) window.location = '/sales/delete/' + id; }
+</script>
+{% endblock %}
