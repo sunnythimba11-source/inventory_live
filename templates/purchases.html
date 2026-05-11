@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block content %}
+<h4 class="page-title"><i class="bi bi-cart-plus"></i> Purchases</h4>
+{% if current_user.role == 'admin' %}<button class="btn btn-gold mb-3" onclick="showForm()"><i class="bi bi-plus-lg"></i> Record Purchase</button>{% endif %}
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Date</th><th>Material</th><th>Supplier</th><th>Qty</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th>{% if current_user.role == 'admin' %}<th></th>{% endif %}</tr></thead>
+      <tbody>{% for p in items|sort(attribute='id', reverse=True) %}
+        {% set mat = rm|selectattr('id', 'equalto', p.raw_material_id)|first %}
+        <tr>
+          <td>{{ p.date }}</td><td>{{ mat.name if mat else 'Unknown' }}</td><td>{{ p.supplier_name or '-' }}</td>
+          <td>{{ fmt_num(p.quantity) }}</td><td>{{ fmt_money(p.total_cost) }}</td>
+          <td>{{ fmt_money(p.paid_amount or 0) }}</td><td>{{ fmt_money(p.balance or p.total_cost) }}</td>
+          <td>{% if (p.balance or 0) <= 0 %}<span class="badge bg-success">Paid</span>{% elif (p.paid_amount or 0) > 0 %}<span class="badge bg-warning text-dark">Partial</span>{% else %}<span class="badge bg-danger">Unpaid</span>{% endif %}</td>
+          {% if current_user.role == 'admin' %}
+          <td style="white-space:nowrap">
+            <button class="btn btn-sm btn-outline-primary" onclick="payForm({{ p.id }})" title="Make Payment"><i class="bi bi-cash"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="del({{ p.id }})"><i class="bi bi-trash"></i></button>
+          </td>{% endif %}
+        </tr>{% endfor %}</tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+{% if current_user.role == 'admin' %}
+<div class="modal fade" id="formModal" tabindex="-1">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header" style="background:#1a3c34;color:#fff;">
+      <h5 class="modal-title" id="modalTitle">Record Purchase</h5>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+    </div>
+    <form method="POST" action="/purchases/save">
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Raw Material *</label>
+            <select name="raw_material_id" class="form-select" required onchange="updateMatUnit()">
+              <option value="">Select material</option>
+              {% for r in rm %}<option value="{{ r.id }}">{{ r.name }} (Stock: {{ fmt_num(r.current_stock) }} {{ r.unit }})</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Supplier</label>
+            <select name="supplier_id" class="form-select" onchange="updateSupplierName(this)">
+              <option value="">Select supplier</option>
+              {% for s in suppliers %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+            </select>
+            <input type="hidden" name="supplier_name" id="supplierName">
+          </div>
+          <div class="col-md-3"><label class="form-label">Quantity *</label><input type="number" name="quantity" class="form-control" step="0.01" required oninput="calcTotal()"></div>
+          <div class="col-md-3"><label class="form-label">Unit Price *</label><input type="number" name="unit_price" class="form-control" step="0.01" required oninput="calcTotal()"></div>
+          <div class="col-md-3"><label class="form-label">Total Cost</label><input type="text" class="form-control" id="totalCost" readonly style="font-weight:700;color:#1a3c34;"></div>
+          <div class="col-md-3"><label class="form-label">Amount Paid</label><input type="number" name="paid_amount" class="form-control" step="0.01" value="0" oninput="calcTotal()"></div>
+          <div class="col-md-4"><label class="form-label">Invoice No.</label><input type="text" name="invoice_no" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">Date</label><input type="date" name="date" class="form-control" value="{{ today_str() }}"></div>
+          <div class="col-md-4"><label class="form-label">Payment Method</label>
+            <select name="payment_method" class="form-select">
+              <option value="Cash">Cash</option><option value="M-Pesa">M-Pesa</option>
+              <option value="Bank Transfer">Bank Transfer</option><option value="Cheque">Cheque</option>
+            </select>
+          </div>
+          <div class="col-md-6"><label class="form-label">Payment Date</label><input type="date" name="payment_date" class="form-control" value="{{ today_str() }}"></div>
+          <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Purchase</button>
+      </div>
+    </form>
+  </div></div>
+</div>
+
+<div class="modal fade" id="payModal" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header" style="background:#1a3c34;color:#fff;">
+      <h5 class="modal-title">Make Payment</h5>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+    </div>
+    <form method="POST" action="/purchases/pay">
+      <div class="modal-body">
+        <input type="hidden" name="purchase_id" id="payId">
+        <div class="mb-2"><label>Supplier</label><input type="text" id="paySupplier" class="form-control" readonly></div>
+        <div class="row g-2">
+          <div class="col-6"><label>Total</label><input type="text" id="payTotal" class="form-control" readonly></div>
+          <div class="col-6"><label>Balance</label><input type="text" id="payBalance" class="form-control" readonly style="font-weight:700;color:#dc3545"></div>
+        </div>
+        <div class="mb-2 mt-2"><label>Payment Amount *</label><input type="number" name="payment_amount" class="form-control" step="0.01" min="0" required></div>
+        <div class="mb-2"><label>Method</label>
+          <select name="payment_method" class="form-select">
+            <option value="Cash">Cash</option><option value="M-Pesa">M-Pesa</option>
+            <option value="Bank Transfer">Bank Transfer</option><option value="Cheque">Cheque</option>
+          </select>
+        </div>
+        <div class="mb-2"><label>Date</label><input type="date" name="payment_date" class="form-control" value="{{ today_str() }}"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary">Record Payment</button>
+      </div>
+    </form>
+  </div></div>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+let _ptotal = 0;
+function calcTotal() {
+  const q = parseFloat(document.querySelector('[name="quantity"]').value) || 0;
+  const p = parseFloat(document.querySelector('[name="unit_price"]').value) || 0;
+  _ptotal = q * p;
+  document.getElementById('totalCost').value = 'KSh ' + _ptotal.toLocaleString('en-KE', {minimumFractionDigits:2});
+}
+function updateSupplierName(sel) { document.getElementById('supplierName').value = sel.options[sel.selectedIndex]?.text || ''; }
+function payForm(id) {
+  fetch('/purchases/data/'+id).then(r=>r.json()).then(d => {
+    document.getElementById('payId').value = d.id;
+    document.getElementById('paySupplier').value = d.supplier_name || 'N/A';
+    document.getElementById('payTotal').value = 'KSh ' + d.total_cost.toLocaleString('en-KE', {minimumFractionDigits:2});
+    document.getElementById('payBalance').value = 'KSh ' + (d.balance||d.total_cost).toLocaleString('en-KE', {minimumFractionDigits:2});
+  });
+  new bootstrap.Modal(document.getElementById('payModal')).show();
+}
+function del(id) { if (confirm('Delete purchase? Stock will adjust.')) window.location = '/purchases/delete/' + id; }
+</script>
+{% endblock %}
